@@ -39,11 +39,11 @@ Copy the token — it's shown only once.
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `JIRA_BASE_URL` | ✅ | — | Your Jira instance URL, e.g. `https://jira.example.com` |
-| `JIRA_TOKEN` | ✅* | — | Personal Access Token (PAT) |
+| `JIRA_TOKEN` | ✅ | — | Personal Access Token (PAT). On macOS can use Keychain instead (see below) |
 | `JIRA_KEYCHAIN_SERVICE` | — | `jira_pat` | macOS Keychain service name (alternative to `JIRA_TOKEN`) |
 | `JIRA_SSL_VERIFY` | — | `true` | Set to `false` to disable SSL verification (self-signed certs) |
 
-*On macOS you can store the token in Keychain instead of `JIRA_TOKEN`:
+**macOS Keychain alternative** — store the token once, no env var needed:
 ```bash
 security add-generic-password -a $USER -s jira_pat -w <your_token>
 ```
