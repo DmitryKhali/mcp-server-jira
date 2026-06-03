@@ -1,0 +1,8 @@
+{
+  "project": "MYPROJECT",
+  "component_ids": ["10100"],
+  "assignees": {
+    "team_a": "john.doe",
+    "team_b": "jane.doe"
+  }
+}
