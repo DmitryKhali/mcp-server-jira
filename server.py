@@ -393,5 +393,63 @@ def get_attachment_content(attachment_id: str) -> str:
     )
 
 
+@mcp.tool()
+def transition_issue(issue_key: str, status_name: str) -> str:
+    """Change the status of a Jira issue by transition name.
+
+    Fetches available transitions for the issue and applies the one
+    matching status_name (case-insensitive). If no match is found,
+    returns the list of available transitions.
+
+    Args:
+        issue_key: Jira issue key, e.g. MYPROJECT-456
+        status_name: Target status name, e.g. "In Progress", "Done", "Closed"
+
+    Returns:
+        JSON with result: new status on success, or available transitions on mismatch
+    """
+    base_url = _get_base_url()
+
+    with _jira_client() as client:
+        # Get available transitions
+        resp = client.get(f"{base_url}/rest/api/2/issue/{issue_key}/transitions")
+        resp.raise_for_status()
+        transitions = resp.json().get("transitions", [])
+
+        # Find matching transition (case-insensitive)
+        match = next(
+            (t for t in transitions if t["to"]["name"].lower() == status_name.lower()),
+            None,
+        )
+
+        if not match:
+            available = [t["to"]["name"] for t in transitions]
+            return json.dumps(
+                {
+                    "error": f"Transition to '{status_name}' not found",
+                    "available_statuses": available,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+
+        # Apply transition
+        resp = client.post(
+            f"{base_url}/rest/api/2/issue/{issue_key}/transitions",
+            json={"transition": {"id": match["id"]}},
+        )
+        resp.raise_for_status()
+
+    return json.dumps(
+        {
+            "key": issue_key,
+            "url": f"{base_url}/browse/{issue_key}",
+            "status": match["to"]["name"],
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
 if __name__ == "__main__":
     mcp.run()

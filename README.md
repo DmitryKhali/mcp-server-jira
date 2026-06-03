@@ -14,6 +14,7 @@ MCP server for Jira (Server / Data Center). Provides full read/write access to i
 | `get_issue` | Read issue details + list of attachments with IDs |
 | `search_issues` | Search by JQL |
 | `get_attachment_content` | Download attachment content (text files returned as string; binary files return metadata only) |
+| `transition_issue` | Change issue status by name (e.g. "In Progress", "Done"). Returns available statuses if name not found. |
 
 ## Setup
 
