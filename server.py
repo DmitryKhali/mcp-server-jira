@@ -451,5 +451,30 @@ def transition_issue(issue_key: str, status_name: str) -> str:
     )
 
 
+@mcp.tool()
+def delete_attachment(attachment_id: str) -> str:
+    """Delete an attachment from a Jira issue by attachment ID.
+
+    Use get_issue first to find attachment IDs.
+
+    Args:
+        attachment_id: Attachment ID, e.g. "1754310"
+
+    Returns:
+        JSON with confirmation of deletion
+    """
+    base_url = _get_base_url()
+
+    with _jira_client() as client:
+        resp = client.delete(f"{base_url}/rest/api/2/attachment/{attachment_id}")
+        resp.raise_for_status()
+
+    return json.dumps(
+        {"deleted": True, "attachment_id": attachment_id},
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
 if __name__ == "__main__":
     mcp.run()
