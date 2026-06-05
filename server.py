@@ -153,6 +153,7 @@ def update_issue(
     """
     base_url = _get_base_url()
     fields: dict = {}
+    updates: dict = {}
 
     if summary is not None:
         fields["summary"] = summary
@@ -167,15 +168,19 @@ def update_issue(
     if environment is not None:
         fields["environment"] = environment
     if fix_versions is not None:
-        fields["fixVersions"] = [{"name": v} for v in fix_versions]
+        updates["fixVersions"] = [{"set": [{"name": v} for v in fix_versions]}]
 
-    if not fields:
+    if not fields and not updates:
         raise ValueError("No fields to update — provide at least one parameter")
+
+    body: dict = {"fields": fields} if fields else {}
+    if updates:
+        body["update"] = updates
 
     with _jira_client() as client:
         resp = client.put(
             f"{base_url}/rest/api/2/issue/{issue_key}",
-            json={"fields": fields},
+            json=body,
         )
         resp.raise_for_status()
 
@@ -183,7 +188,7 @@ def update_issue(
         {
             "key": issue_key,
             "url": f"{base_url}/browse/{issue_key}",
-            "updated_fields": list(fields.keys()),
+            "updated_fields": list(fields.keys()) + list(updates.keys()),
         },
         ensure_ascii=False,
         indent=2,
