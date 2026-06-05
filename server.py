@@ -134,6 +134,7 @@ def update_issue(
     priority: Optional[str] = None,
     labels: Optional[list[str]] = None,
     environment: Optional[str] = None,
+    fix_versions: Optional[list[str]] = None,
 ) -> str:
     """Update fields of an existing Jira issue.
 
@@ -145,6 +146,7 @@ def update_issue(
         priority: Priority name, e.g. Medium, High
         labels: Label strings, e.g. ["backend"]
         environment: Device/OS string for the Environment field
+        fix_versions: Version names, e.g. ["4.75.0"]. Pass empty list [] to clear.
 
     Returns:
         JSON with issue key and URL
@@ -164,6 +166,8 @@ def update_issue(
         fields["labels"] = labels
     if environment is not None:
         fields["environment"] = environment
+    if fix_versions is not None:
+        fields["fixVersions"] = [{"name": v} for v in fix_versions]
 
     if not fields:
         raise ValueError("No fields to update — provide at least one parameter")
