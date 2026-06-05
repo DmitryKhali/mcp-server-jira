@@ -476,5 +476,37 @@ def delete_attachment(attachment_id: str) -> str:
     )
 
 
+@mcp.tool()
+def add_comment(issue_key: str, body: str) -> str:
+    """Add a comment to a Jira issue.
+
+    Args:
+        issue_key: Jira issue key, e.g. MYPROJECT-456
+        body: Comment text in Jira wiki markup
+
+    Returns:
+        JSON with comment id, issue key and URL
+    """
+    base_url = _get_base_url()
+
+    with _jira_client() as client:
+        resp = client.post(
+            f"{base_url}/rest/api/2/issue/{issue_key}/comment",
+            json={"body": body},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+    return json.dumps(
+        {
+            "id": data.get("id"),
+            "issue_key": issue_key,
+            "url": f"{base_url}/browse/{issue_key}",
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
 if __name__ == "__main__":
     mcp.run()
