@@ -9,7 +9,7 @@ MCP server for Jira (Server / Data Center). Provides full read/write access to i
 | Tool | Description |
 |---|---|
 | `create_issue` | Create a new issue |
-| `update_issue` | Update fields of an existing issue |
+| `update_issue` | Update fields of an existing issue (summary, description, assignee, priority, labels, environment, fix_versions) |
 | `attach_file` | Attach a local file to an issue |
 | `get_issue` | Read issue details + list of attachments with IDs |
 | `search_issues` | Search by JQL |
@@ -87,3 +87,4 @@ Or with macOS Keychain (token stored separately):
 - Works with **Jira Server / Data Center** (REST API v2). Not tested with Jira Cloud.
 - `get_attachment_content` reads text-based files (`.json`, `.txt`, `.xml`, `.yaml`, `.csv`, `.log`, `.md`) and returns their content directly — useful for AI assistants to read mock configs or logs attached to issues.
 - `JIRA_SSL_VERIFY=false` is needed for instances with self-signed or corporate certificates.
+- `fix_versions` (in `update_issue`) uses Jira update API — may fail with 400 if the field is not on the edit screen for the project.
