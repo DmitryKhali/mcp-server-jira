@@ -51,6 +51,16 @@ def _jira_client() -> httpx.Client:
     )
 
 
+def _check_response(resp: httpx.Response, context: str = "") -> None:
+    """Raise a readable error with the Jira response body on HTTP errors."""
+    if resp.is_error:
+        detail = resp.text[:2000] if resp.text else "(no body)"
+        msg = f"Jira API {resp.status_code}"
+        if context:
+            msg = f"{msg} — {context}"
+        raise RuntimeError(f"{msg}: {detail}")
+
+
 mcp = FastMCP("jira_mcp")
 
 
@@ -110,7 +120,7 @@ def create_issue(
             f"{base_url}/rest/api/2/issue",
             json={"fields": fields},
         )
-        resp.raise_for_status()
+        _check_response(resp)
         data = resp.json()
 
     issue_key = data.get("key", "")
@@ -182,7 +192,7 @@ def update_issue(
             f"{base_url}/rest/api/2/issue/{issue_key}",
             json=body,
         )
-        resp.raise_for_status()
+        _check_response(resp)
 
     return json.dumps(
         {
@@ -227,7 +237,7 @@ def attach_file(issue_key: str, file_path: str) -> str:
             f"{base_url}/rest/api/2/issue/{issue_key}/attachments",
             files={"file": (filename, file_bytes)},
         )
-        resp.raise_for_status()
+        _check_response(resp)
         data = resp.json()
 
     attachment = data[0] if isinstance(data, list) else data
@@ -260,7 +270,7 @@ def get_issue(issue_key: str) -> str:
             f"{base_url}/rest/api/2/issue/{issue_key}",
             params={"fields": "summary,description,status,assignee,priority,labels,components,environment,attachment"},
         )
-        resp.raise_for_status()
+        _check_response(resp)
         data = resp.json()
 
     fields = data.get("fields", {})
@@ -314,7 +324,7 @@ def search_issues(jql: str, max_results: int = 20) -> str:
                 "fields": "summary,status,assignee,priority,labels",
             },
         )
-        resp.raise_for_status()
+        _check_response(resp)
         data = resp.json()
 
     issues = []
@@ -360,7 +370,7 @@ def get_attachment_content(attachment_id: str) -> str:
     base_url = _get_base_url()
     with _jira_client() as client:
         meta_resp = client.get(f"{base_url}/rest/api/2/attachment/{attachment_id}")
-        meta_resp.raise_for_status()
+        _check_response(meta_resp)
         meta = meta_resp.json()
 
         mime_type = meta.get("mimeType", "")
@@ -387,7 +397,7 @@ def get_attachment_content(attachment_id: str) -> str:
             )
 
         content_resp = client.get(content_url)
-        content_resp.raise_for_status()
+        _check_response(content_resp)
 
     return json.dumps(
         {
@@ -422,7 +432,7 @@ def transition_issue(issue_key: str, status_name: str) -> str:
     with _jira_client() as client:
         # Get available transitions
         resp = client.get(f"{base_url}/rest/api/2/issue/{issue_key}/transitions")
-        resp.raise_for_status()
+        _check_response(resp)
         transitions = resp.json().get("transitions", [])
 
         # Find matching transition (case-insensitive)
@@ -447,7 +457,7 @@ def transition_issue(issue_key: str, status_name: str) -> str:
             f"{base_url}/rest/api/2/issue/{issue_key}/transitions",
             json={"transition": {"id": match["id"]}},
         )
-        resp.raise_for_status()
+        _check_response(resp)
 
     return json.dumps(
         {
@@ -476,7 +486,7 @@ def delete_attachment(attachment_id: str) -> str:
 
     with _jira_client() as client:
         resp = client.delete(f"{base_url}/rest/api/2/attachment/{attachment_id}")
-        resp.raise_for_status()
+        _check_response(resp)
 
     return json.dumps(
         {"deleted": True, "attachment_id": attachment_id},
@@ -503,7 +513,7 @@ def add_comment(issue_key: str, body: str) -> str:
             f"{base_url}/rest/api/2/issue/{issue_key}/comment",
             json={"body": body},
         )
-        resp.raise_for_status()
+        _check_response(resp)
         data = resp.json()
 
     return json.dumps(
