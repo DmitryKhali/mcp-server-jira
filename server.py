@@ -76,6 +76,7 @@ def create_issue(
     priority: str = "Medium",
     component_ids: Optional[list[str]] = None,
     environment: Optional[str] = None,
+    fix_versions: Optional[list[str]] = None,
 ) -> str:
     """Create a new issue in Jira.
 
@@ -90,6 +91,7 @@ def create_issue(
         priority: Priority name, e.g. Medium, High, Critical
         component_ids: Component IDs as strings, e.g. ["10100"]
         environment: Device/OS string for the Environment field
+        fix_versions: Version names, e.g. ["B2C 4.76.0 BE (Tech)"]
 
     Returns:
         JSON with created issue key and URL
@@ -114,6 +116,8 @@ def create_issue(
         fields["components"] = [{"id": cid} for cid in component_ids]
     if environment:
         fields["environment"] = environment
+    if fix_versions:
+        fields["fixVersions"] = [{"name": v} for v in fix_versions]
 
     with _jira_client() as client:
         resp = client.post(
@@ -145,6 +149,7 @@ def update_issue(
     labels: Optional[list[str]] = None,
     environment: Optional[str] = None,
     fix_versions: Optional[list[str]] = None,
+    component_ids: Optional[list[str]] = None,
 ) -> str:
     """Update fields of an existing Jira issue.
 
@@ -157,6 +162,7 @@ def update_issue(
         labels: Label strings, e.g. ["backend"]
         environment: Device/OS string for the Environment field
         fix_versions: Version names, e.g. ["4.75.0"]. Pass empty list [] to clear.
+        component_ids: Component IDs as strings, e.g. ["10100"]
 
     Returns:
         JSON with issue key and URL
@@ -177,6 +183,8 @@ def update_issue(
         fields["labels"] = labels
     if environment is not None:
         fields["environment"] = environment
+    if component_ids is not None:
+        fields["components"] = [{"id": cid} for cid in component_ids]
     if fix_versions is not None:
         updates["fixVersions"] = [{"set": [{"name": v} for v in fix_versions]}]
 
@@ -268,7 +276,7 @@ def get_issue(issue_key: str) -> str:
     with _jira_client() as client:
         resp = client.get(
             f"{base_url}/rest/api/2/issue/{issue_key}",
-            params={"fields": "summary,description,status,assignee,priority,labels,components,environment,attachment"},
+            params={"fields": "summary,description,status,issuetype,assignee,priority,labels,components,environment,attachment,fixVersions"},
         )
         _check_response(resp)
         data = resp.json()
@@ -291,11 +299,13 @@ def get_issue(issue_key: str) -> str:
             "summary": fields.get("summary"),
             "description": fields.get("description"),
             "status": fields.get("status", {}).get("name"),
+            "issue_type": fields.get("issuetype", {}).get("name") if fields.get("issuetype") else None,
             "assignee": fields.get("assignee", {}).get("displayName") if fields.get("assignee") else None,
             "priority": fields.get("priority", {}).get("name") if fields.get("priority") else None,
             "labels": fields.get("labels", []),
             "components": [c.get("name") for c in fields.get("components", [])],
             "environment": fields.get("environment"),
+            "fix_versions": [v.get("name") for v in fields.get("fixVersions", [])],
             "attachments": attachments,
         },
         ensure_ascii=False,
@@ -521,6 +531,82 @@ def add_comment(issue_key: str, body: str) -> str:
             "id": data.get("id"),
             "issue_key": issue_key,
             "url": f"{base_url}/browse/{issue_key}",
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@mcp.tool()
+def get_comments(issue_key: str) -> str:
+    """Get all comments for a Jira issue.
+
+    Args:
+        issue_key: Jira issue key, e.g. MYPROJECT-456
+
+    Returns:
+        JSON with list of comments (id, author, body, created)
+    """
+    base_url = _get_base_url()
+
+    with _jira_client() as client:
+        resp = client.get(f"{base_url}/rest/api/2/issue/{issue_key}/comment")
+        _check_response(resp)
+        data = resp.json()
+
+    comments = [
+        {
+            "id": c.get("id"),
+            "author": c.get("author", {}).get("displayName"),
+            "author_name": c.get("author", {}).get("name"),
+            "created": c.get("created"),
+            "updated": c.get("updated"),
+            "body": c.get("body"),
+        }
+        for c in data.get("comments", [])
+    ]
+
+    return json.dumps(
+        {
+            "issue_key": issue_key,
+            "total": data.get("total", len(comments)),
+            "comments": comments,
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@mcp.tool()
+def update_comment(issue_key: str, comment_id: str, body: str) -> str:
+    """Edit an existing comment on a Jira issue.
+
+    Use get_comments first to find the comment ID.
+
+    Args:
+        issue_key: Jira issue key, e.g. MYPROJECT-456
+        comment_id: Comment ID from get_comments response
+        body: New comment text in Jira wiki markup
+
+    Returns:
+        JSON with comment id, issue key and URL
+    """
+    base_url = _get_base_url()
+
+    with _jira_client() as client:
+        resp = client.put(
+            f"{base_url}/rest/api/2/issue/{issue_key}/comment/{comment_id}",
+            json={"body": body},
+        )
+        _check_response(resp)
+        data = resp.json()
+
+    return json.dumps(
+        {
+            "id": data.get("id"),
+            "issue_key": issue_key,
+            "url": f"{base_url}/browse/{issue_key}",
+            "updated": data.get("updated"),
         },
         ensure_ascii=False,
         indent=2,
