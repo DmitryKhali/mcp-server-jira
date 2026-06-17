@@ -77,6 +77,7 @@ def create_issue(
     component_ids: Optional[list[str]] = None,
     environment: Optional[str] = None,
     fix_versions: Optional[list[str]] = None,
+    epic_link: Optional[str] = None,
 ) -> str:
     """Create a new issue in Jira.
 
@@ -92,6 +93,7 @@ def create_issue(
         component_ids: Component IDs as strings, e.g. ["10100"]
         environment: Device/OS string for the Environment field
         fix_versions: Version names, e.g. ["B2C 4.76.0 BE (Tech)"]
+        epic_link: Epic issue key to link this issue to, e.g. "TMR-32806"
 
     Returns:
         JSON with created issue key and URL
@@ -105,7 +107,7 @@ def create_issue(
     }
 
     if description:
-        fields["description"] = description
+        fields["description"] = description.replace('\u001d', '\\u001d')
     if labels:
         fields["labels"] = labels
     if parent:
@@ -118,6 +120,8 @@ def create_issue(
         fields["environment"] = environment
     if fix_versions:
         fields["fixVersions"] = [{"name": v} for v in fix_versions]
+    if epic_link:
+        fields["customfield_10008"] = epic_link
 
     with _jira_client() as client:
         resp = client.post(
@@ -150,6 +154,7 @@ def update_issue(
     environment: Optional[str] = None,
     fix_versions: Optional[list[str]] = None,
     component_ids: Optional[list[str]] = None,
+    epic_link: Optional[str] = None,
 ) -> str:
     """Update fields of an existing Jira issue.
 
@@ -163,6 +168,7 @@ def update_issue(
         environment: Device/OS string for the Environment field
         fix_versions: Version names, e.g. ["4.75.0"]. Pass empty list [] to clear.
         component_ids: Component IDs as strings, e.g. ["10100"]
+        epic_link: Epic issue key to link this issue to, e.g. "TMR-32806"
 
     Returns:
         JSON with issue key and URL
@@ -174,7 +180,7 @@ def update_issue(
     if summary is not None:
         fields["summary"] = summary
     if description is not None:
-        fields["description"] = description
+        fields["description"] = description.replace('\u001d', '\\u001d')
     if assignee is not None:
         fields["assignee"] = {"name": assignee}
     if priority is not None:
@@ -185,6 +191,8 @@ def update_issue(
         fields["environment"] = environment
     if component_ids is not None:
         fields["components"] = [{"id": cid} for cid in component_ids]
+    if epic_link is not None:
+        fields["customfield_10008"] = epic_link
     if fix_versions is not None:
         updates["fixVersions"] = [{"set": [{"name": v} for v in fix_versions]}]
 
