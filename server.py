@@ -546,6 +546,34 @@ def add_comment(issue_key: str, body: str) -> str:
 
 
 @mcp.tool()
+def delete_comment(issue_key: str, comment_id: str) -> str:
+    """Delete a comment from a Jira issue.
+
+    Use get_comments first to find the comment ID.
+
+    Args:
+        issue_key: Jira issue key, e.g. MYPROJECT-456
+        comment_id: Comment ID from get_comments response
+
+    Returns:
+        JSON with confirmation of deletion
+    """
+    base_url = _get_base_url()
+
+    with _jira_client() as client:
+        resp = client.delete(
+            f"{base_url}/rest/api/2/issue/{issue_key}/comment/{comment_id}"
+        )
+        _check_response(resp)
+
+    return json.dumps(
+        {"deleted": True, "comment_id": comment_id, "issue_key": issue_key},
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@mcp.tool()
 def get_comments(issue_key: str) -> str:
     """Get all comments for a Jira issue.
 
@@ -615,6 +643,68 @@ def update_comment(issue_key: str, comment_id: str, body: str) -> str:
             "issue_key": issue_key,
             "url": f"{base_url}/browse/{issue_key}",
             "updated": data.get("updated"),
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@mcp.tool()
+def link_issues(
+    issue_key: str,
+    linked_issue_key: str,
+    link_type: str = "Blocks",
+    direction: str = "outward",
+) -> str:
+    """Create a formal link between two Jira issues.
+
+    Link types available on this instance: "Blocks" (blocks / is blocked by),
+    "Relates" (relates / relates to), "Duplicate" (duplicates / is duplicated by),
+    "Cloners" (clones / is cloned by).
+
+    Args:
+        issue_key: First issue key, e.g. MYPROJECT-456
+        linked_issue_key: Second issue key, e.g. MYPROJECT-789
+        link_type: Link type name, e.g. "Blocks", "Relates", "Duplicate"
+        direction: "outward" — issue_key <outward verb> linked_issue_key
+                   (e.g. issue_key "blocks" linked_issue_key).
+                   "inward" — issue_key <inward verb> linked_issue_key
+                   (e.g. issue_key "is blocked by" linked_issue_key).
+
+    Returns:
+        JSON confirming the link creation
+    """
+    base_url = _get_base_url()
+
+    # This Jira Server instance renders inwardIssue/outwardIssue the opposite
+    # way from the documented Cloud API: inwardIssue actually carries the
+    # outward verb (e.g. "blocks") onto outwardIssue. Verified empirically
+    # via TMR-34134/TMR-34201/TMR-34203 — swap relative to Atlassian docs.
+    if direction == "outward":
+        inward_issue, outward_issue = issue_key, linked_issue_key
+    elif direction == "inward":
+        outward_issue, inward_issue = issue_key, linked_issue_key
+    else:
+        raise ValueError('direction must be "outward" or "inward"')
+
+    with _jira_client() as client:
+        resp = client.post(
+            f"{base_url}/rest/api/2/issueLink",
+            json={
+                "type": {"name": link_type},
+                "inwardIssue": {"key": inward_issue},
+                "outwardIssue": {"key": outward_issue},
+            },
+        )
+        _check_response(resp)
+
+    return json.dumps(
+        {
+            "linked": True,
+            "issue_key": issue_key,
+            "linked_issue_key": linked_issue_key,
+            "link_type": link_type,
+            "direction": direction,
         },
         ensure_ascii=False,
         indent=2,
